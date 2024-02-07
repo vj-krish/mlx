@@ -21,6 +21,14 @@ struct Indices {
   const int ndim [[id(NIDX + 3)]];
 };
 
+template <typename IdxT, int NIDX>
+struct Indices_f {
+  const array<device IdxT*, NIDX> buffers [[id(0)]];
+  device float* shapes [[id(NIDX + 1)]];
+  device float* strides [[id(NIDX + 2)]];
+  const int ndim [[id(NIDX + 3)]];
+};
+
 template <typename IdxT>
 inline size_t offset_neg_idx(IdxT idx, size_t size) {
   return (idx < 0) ? idx + size : idx;
@@ -176,16 +184,16 @@ instantiate_gather(bfloat16, bfloat16_t)
 
 template <typename T, typename IdxT, typename Op, int NIDX>
 [[kernel]] void scatter(
-    const device Indices<IdxT, NIDX>& indices [[buffer(0)]],
+    const device Indices_f<IdxT, NIDX>& indices [[buffer(0)]],
     const device T *updates [[buffer(1)]],
     device mlx_atomic<T> *out [[buffer(2)]],
-    const device int *upd_shape [[buffer(3)]],
-    const device size_t *upd_strides [[buffer(4)]],
-    const device size_t& upd_ndim [[buffer(5)]],
+    const device float *upd_shape [[buffer(3)]],
+    const device float *upd_strides [[buffer(4)]],
+    const device float& upd_ndim [[buffer(5)]],
     const device uint& upd_size [[buffer(6)]],
-    const device int *out_shape [[buffer(7)]],
-    const device size_t *out_strides [[buffer(8)]],
-    const device size_t& out_ndim [[buffer(9)]],
+    const device float *out_shape [[buffer(7)]],
+    const device float *out_strides [[buffer(8)]],
+    const device float& out_ndim [[buffer(9)]],
     const device int* axes [[buffer(10)]],
     uint gid [[thread_position_in_grid]]) {
 
@@ -193,38 +201,38 @@ template <typename T, typename IdxT, typename Op, int NIDX>
   auto ind_idx = gid / upd_size;
   auto ind_offset = gid % upd_size;
 
-  size_t out_idx = 0;
+  float out_idx = 0;
   for (int i = 0; i < NIDX; ++i) {
-    auto idx_loc = elem_to_loc(
+    auto idx_loc = elem_to_loc_f(
         ind_idx,
         &indices.shapes[indices.ndim * i],
         &indices.strides[indices.ndim * i],
         indices.ndim);
     auto ax = axes[i];
     auto idx_val = offset_neg_idx(
-        indices.buffers[i][idx_loc], out_shape[ax]);
+        indices.buffers[i][static_cast<uint>(idx_loc)], out_shape[ax]);
     out_idx += idx_val * out_strides[ax];
   }
 
-  auto out_offset = elem_to_loc(
-      ind_offset, upd_shape + indices.ndim, out_strides, out_ndim);
-  auto upd_idx = elem_to_loc(gid, upd_shape, upd_strides, upd_ndim);
-  op.atomic_update(out, updates[upd_idx], out_idx + out_offset);
+  float out_offset = elem_to_loc_f(
+      ind_offset, upd_shape + indices.ndim, out_strides, static_cast<float>(out_ndim));
+  float upd_idx = elem_to_loc_f(static_cast<float>(gid), upd_shape, upd_strides, upd_ndim);
+  op.atomic_update(out, updates[static_cast<uint>(upd_idx)], out_idx + out_offset);
 }
 
 #define instantiate_scatter4(name, type, ind_type, op_type, nindex) \
 template [[host_name("scatter" name "_" #nindex)]] \
 [[kernel]] void scatter<type, ind_type, op_type, nindex>( \
-    const device Indices<ind_type, nindex>& indices [[buffer(0)]], \
+    const device Indices_f<ind_type, nindex>& indices [[buffer(0)]], \
     const device type *updates [[buffer(1)]], \
     device mlx_atomic<type> *out [[buffer(2)]], \
-    const device int *upd_shape [[buffer(3)]], \
-    const device size_t *upd_strides [[buffer(4)]], \
-    const device size_t& upd_ndim [[buffer(5)]], \
+    const device float *upd_shape [[buffer(3)]], \
+    const device float *upd_strides [[buffer(4)]], \
+    const device float& upd_ndim [[buffer(5)]], \
     const device uint& upd_size [[buffer(6)]], \
-    const device int *out_shape [[buffer(7)]], \
-    const device size_t *out_strides [[buffer(8)]], \
-    const device size_t& out_ndim [[buffer(9)]], \
+    const device float *out_shape [[buffer(7)]], \
+    const device float *out_strides [[buffer(8)]], \
+    const device float& out_ndim [[buffer(9)]], \
     const device int* axes [[buffer(10)]], \
     uint gid [[thread_position_in_grid]]);
 

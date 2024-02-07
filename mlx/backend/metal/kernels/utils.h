@@ -78,6 +78,22 @@ inline size_t elem_to_loc(
   return loc;
 }
 
+inline float elem_to_loc_f(
+    float elem,
+    device const float* shape,
+    device const float* strides,
+    float ndim) {
+  float loc = 0;
+  for (float i = ndim - 1; i >= 0; --i) {
+    uint ui = static_cast<uint>(i);
+    float temp = elem / shape[ui];
+    float temp_floor = floor(temp);
+    loc += ((elem - (temp_floor * shape[ui])) * strides[ui]);
+    elem = temp_floor;
+  }
+  return loc;
+}
+
 inline size_t elem_to_loc(
     uint elem,
     constant const int* shape,

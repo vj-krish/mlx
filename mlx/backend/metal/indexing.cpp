@@ -245,17 +245,20 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
 
   // Allocate and fill buffers for shapes and strides
   int idx_ndim = nidx ? inputs[1].ndim() : 0;
-  auto idx_shapes_buf = allocator::malloc_or_wait(sizeof(int) * idx_ndim);
-  auto idx_strides_buf = allocator::malloc_or_wait(sizeof(size_t) * idx_ndim);
+  auto idx_shapes_buf = allocator::malloc_or_wait(sizeof(float) * idx_ndim);
+  auto idx_strides_buf = allocator::malloc_or_wait(sizeof(float) * idx_ndim);
   for (int i = 0; i < nidx; ++i) {
-    std::copy(
-        inputs[i + 1].shape().begin(),
-        inputs[i + 1].shape().end(),
-        static_cast<int*>(idx_shapes_buf.raw_ptr()) + i * idx_ndim);
-    std::copy(
-        inputs[i + 1].strides().begin(),
-        inputs[i + 1].strides().end(),
-        static_cast<size_t*>(idx_strides_buf.raw_ptr()) + i * idx_ndim);
+    float* idx_shapes_f =
+        static_cast<float*>(idx_shapes_buf.raw_ptr()) + i * idx_ndim;
+    float* idx_strides_f =
+        static_cast<float*>(idx_strides_buf.raw_ptr()) + i * idx_ndim;
+
+    const auto& input_shape = inputs[i + 1].shape();
+    const auto& input_strides = inputs[i + 1].strides();
+    for (int j = 0; j < input_shape.size(); j++) {
+      idx_shapes_f[j] = static_cast<float>(input_shape[j]);
+      idx_strides_f[j] = static_cast<float>(input_strides[j]);
+    }
   }
 
   // Allocate the argument buffer
@@ -295,11 +298,19 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     compute_encoder->setBytes(&shape_, sizeof(int), 3);
     compute_encoder->setBytes(&stride_, sizeof(size_t), 4);
   } else {
-    compute_encoder->setBytes(upd.shape().data(), upd_ndim * sizeof(int), 3);
+    std::vector<float> upd_shape_f, upd_strides_f;
+    const auto& upd_shape = upd.shape();
+    const auto& upd_strides = upd.strides();
+    for (size_t i = 0; i < upd.shape().size(); i++) {
+      upd_shape_f.push_back(static_cast<float>(upd_shape[i]));
+      upd_strides_f.push_back(static_cast<float>(upd_strides[i]));
+    }
+    compute_encoder->setBytes(upd_shape_f.data(), upd_ndim * sizeof(float), 3);
     compute_encoder->setBytes(
-        upd.strides().data(), upd_ndim * sizeof(size_t), 4);
+        upd_strides_f.data(), upd_ndim * sizeof(float), 4);
   }
-  compute_encoder->setBytes(&upd_ndim, sizeof(size_t), 5);
+  float upd_ndim_f = static_cast<float>(upd_ndim);
+  compute_encoder->setBytes(&upd_ndim_f, sizeof(float), 5);
   compute_encoder->setBytes(&upd_size, sizeof(uint), 6);
 
   size_t out_ndim = out.ndim();
@@ -310,11 +321,20 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     compute_encoder->setBytes(&shape_, sizeof(int), 7);
     compute_encoder->setBytes(&stride_, sizeof(size_t), 8);
   } else {
-    compute_encoder->setBytes(out.shape().data(), out_ndim * sizeof(int), 7);
+    std::vector<float> out_shape_f, out_strides_f;
+    const auto& out_shape = out.shape();
+    const auto& out_strides = out.strides();
+    for (size_t i = 0; i < out.shape().size(); i++) {
+      out_shape_f.push_back(static_cast<float>(out_shape[i]));
+      out_strides_f.push_back(static_cast<float>(out_strides[i]));
+    }
+    compute_encoder->setBytes(out_shape_f.data(), out_ndim * sizeof(float), 7);
     compute_encoder->setBytes(
-        out.strides().data(), out_ndim * sizeof(size_t), 8);
+        out_strides_f.data(), out_ndim * sizeof(float), 8);
   }
-  compute_encoder->setBytes(&out_ndim, sizeof(size_t), 9);
+
+  float out_ndim_f = static_cast<float>(out_ndim);
+  compute_encoder->setBytes(&out_ndim_f, sizeof(float), 9);
   compute_encoder->setBytes(axes_.data(), axes_.size() * sizeof(int), 10);
 
   compute_encoder->dispatchThreads(grid_dims, group_dims);
