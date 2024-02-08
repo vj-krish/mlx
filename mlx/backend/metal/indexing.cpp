@@ -282,7 +282,7 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
 
   compute_encoder->setBuffer(static_cast<MTL::Buffer*>(arg_buf.ptr()), 0, 0);
   size_t upd_ndim = upd.ndim();
-  size_t upd_size = 1;
+  uint upd_size = 1;
   for (int i = idx_ndim; i < upd.ndim(); ++i) {
     upd_size *= upd.shape(i);
   }
@@ -300,7 +300,7 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
         upd.strides().data(), upd_ndim * sizeof(size_t), 4);
   }
   compute_encoder->setBytes(&upd_ndim, sizeof(size_t), 5);
-  compute_encoder->setBytes(&upd_size, sizeof(size_t), 6);
+  compute_encoder->setBytes(&upd_size, sizeof(uint), 6);
 
   size_t out_ndim = out.ndim();
   if (out_ndim == 0) {

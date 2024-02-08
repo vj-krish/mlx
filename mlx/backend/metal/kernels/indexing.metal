@@ -182,7 +182,7 @@ template <typename T, typename IdxT, typename Op, int NIDX>
     const device int *upd_shape [[buffer(3)]],
     const device size_t *upd_strides [[buffer(4)]],
     const device size_t& upd_ndim [[buffer(5)]],
-    const device size_t& upd_size [[buffer(6)]],
+    const device uint& upd_size [[buffer(6)]],
     const device int *out_shape [[buffer(7)]],
     const device size_t *out_strides [[buffer(8)]],
     const device size_t& out_ndim [[buffer(9)]],
@@ -221,7 +221,7 @@ template [[host_name("scatter" name "_" #nindex)]] \
     const device int *upd_shape [[buffer(3)]], \
     const device size_t *upd_strides [[buffer(4)]], \
     const device size_t& upd_ndim [[buffer(5)]], \
-    const device size_t& upd_size [[buffer(6)]], \
+    const device uint& upd_size [[buffer(6)]], \
     const device int *out_shape [[buffer(7)]], \
     const device size_t *out_strides [[buffer(8)]], \
     const device size_t& out_ndim [[buffer(9)]], \
